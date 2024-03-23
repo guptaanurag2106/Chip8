@@ -1,10 +1,16 @@
 PROJECT_NAME = CHIP8
 
 CXX = g++
-CXXFLAGS = -Wall -Werror
+CXXFLAGS = -Wall -Werror -Idependencies/sdl2/include
+LDFLAGS = -Ldependencies/sdl2/lib
+INCDIR = -lSDL2main -lSDL2
 
-$(PROJECT_NAME): chip8.cpp main.cpp
-	$(CXX) $(CXXFLAGS) -o $(PROJECT_NAME) chip8.cpp main.cpp
+all: $(PROJECT_NAME)
 
+$(PROJECT_NAME): main.cpp chip8.cpp
+	$(CXX) $(CXXFLAGS) ${LDFLAGS} -o $(PROJECT_NAME) main.cpp chip8.cpp -lmingw32 $(INCDIR)
+# mwindows
+
+.PHONY: clean
 clean:
 	rm -f $(PROJECT_NAME)

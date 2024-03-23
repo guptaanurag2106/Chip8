@@ -1,2 +1,10 @@
-*.exe
 .vscode/
+*.out
+*.obj
+
+*.exe
+*.out
+
+dependencies/
+*.dll
+*.so
