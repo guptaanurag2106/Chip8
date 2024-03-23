@@ -1,6 +1,10 @@
 #pragma once
 
+#include <time.h>
+
 #include <cstdint>
+#include <cstdlib>
+#include <stack>
 #include <string>
 
 #define MEM_SIZE 0x1000
@@ -10,6 +14,20 @@
 #define STACK_SIZE 16
 #define DISP_ROW 32
 #define DISP_COL 64
+
+#define OPCODE_MASK 0xF000
+#define X_MASK 0x0F00
+#define Y_MASK 0x00F0
+#define N_MASK 0x000F
+#define NN_MASK 0x00FF
+#define NNN_MASK 0x0FFF
+
+#define OPCODE(ins) ((ins & OPCODE_MASK) >> 12)
+#define X(ins) ((ins & X_MASK) >> 8)
+#define Y(ins) ((ins & Y_MASK) >> 4)
+#define N(ins) (ins & N_MASK)
+#define NN(ins) (ins & NN_MASK)
+#define NNN(ins) (ins & NNN_MASK)
 
 class CHIP8 {
  public:
@@ -21,15 +39,16 @@ class CHIP8 {
   void debugDraw();
 
  private:
+  bool mdisp[DISP_ROW][DISP_COL];
   uint8_t mmemory[MEM_SIZE];
   uint8_t mregisters[15];
-  unsigned int mPC;
-  uint16_t mI;
-  uint16_t mVF;
-  uint16_t mstack[16];
+  std::stack<uint16_t> mstack;
+  unsigned int mmem_end;
+  uint8_t mPC;
+  uint8_t mI;
+  uint8_t mVF;
   uint8_t mdelay_timer;
   uint8_t msound_timer;
-  bool mdisp[DISP_ROW][DISP_COL];
 
   uint8_t chip8_fontset[80] = {
       0xF0, 0x90, 0x90, 0x90, 0xF0,  // 0
