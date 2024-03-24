@@ -1,35 +1,19 @@
-#include <SDL2/SDL.h>
+// #include <SDL2/SDL.h>
 #include <string.h>
 
+#include <chrono>
 #include <iostream>
 
 #include "chip8.h"
+#include "display.h"
 
 int main(int argc, char* argv[]) {
+  auto time_prev = std::chrono::system_clock::now();
+
   if (argc < 3) {
     std::cout << "Usage: chip8 --rom <rom>" << std::endl;
     return 0;
   }
-
-  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-    std::cout << "Failed to initialize SDL2: " << SDL_GetError() << std::endl;
-    return -1;
-  }
-
-  // Create a window
-  SDL_Window* window =
-      SDL_CreateWindow("SDL2 Test Window", SDL_WINDOWPOS_CENTERED,
-                       SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_SHOWN);
-  if (!window) {
-    std::cout << "Failed to create window: " << SDL_GetError() << std::endl;
-    return -1;
-  }
-  // Wait for 5 seconds
-  SDL_Delay(5000);
-
-  // Clean up
-  SDL_DestroyWindow(window);
-  SDL_Quit();
 
   bool DEBUG_MODE = false;
   std::string filename;
@@ -41,44 +25,75 @@ int main(int argc, char* argv[]) {
     if (!strcmp(argv[i], "--rom") && (i + 1) < argc) filename = argv[i + 1];
   }
   std::cout << "Hello world" << std::endl;
+
   if (DEBUG_MODE) {
     std::cout << "Running in DEBUG MODE" << std::endl;
   }
-  CHIP8* chip8 = new CHIP8();
-  chip8->loadROM(filename);
 
-  if (DEBUG_MODE) {
-    std::cout << "Enter command (`r` to run the next cycle, `print` to print "
-                 "state, `draw` to debug draw";
+  bool init_success = sdlInit();
+  if (!init_success) {
+    std::cerr << "Failed to initialize SDL" << std::endl;
+    return 0;
   }
 
-  while (true) {
-    bool result = true;
-    if (DEBUG_MODE) {
-      std::string command;
-      std::cin >> command;
-      if (command == "r") {
-        result = chip8->runCycle();
-      } else if (command == "print") {
-        chip8->dumpRegisters();
-      } else if (command == "exit") {
-        result = false;
-      } else if (command == "draw") {
-        chip8->debugDraw();
-      } else {
-        std::cout << "Unknown command" << std::endl;
-      }
+  bool quit = false;
 
-    } else {
-      result = chip8->runCycle();
+  CHIP8 chip8;
+  chip8.loadROM(filename);
+  std::cout << "Successfully loaded ROM" << std::endl;
+  while (!quit) {
+    // bool result = chip8.runCycle();
+    // if (!result) {
+    //   std::cout << "Could not process last instruction..." << std::endl;
+    //   break;
+    // }
+
+    if (chip8.draw_flag) {
+      sdlDraw(&chip8);
     }
-    if (!result) {
-      std::cout << "Could not process last instruction..." << std::endl;
-      break;
+
+    quit = sdlRun(&chip8);
+    if (chip8.key_pressed != -1) {
+      std::cout << "Key pressed " << chip8.key_pressed << std::endl;
     }
+
+    auto time_now = std::chrono::system_clock::now();
+    std::chrono::duration<double> diff = time_now - time_prev;
+
+    if (diff.count() * 1000.0 > CLOCK_RATE_MS) {
+      chip8.timerTick();
+    }
+    time_prev = time_now;
   }
+  sdlCleanup();
 
-  delete chip8;
+  // if (DEBUG_MODE) {
+  //   std::cout << "Enter command (`r` to run the next cycle, `print` to print
+  //   "
+  //                "state, `draw` to debug draw";
+  // }
+
+  // while (true) {
+  //   bool result = true;
+  //   if (DEBUG_MODE) {
+  //     std::string command;
+  //     std::cin >> command;
+  //     if (command == "r") {
+  //       result = chip8->runCycle();
+  //     } else if (command == "print") {
+  //       chip8->dumpRegisters();
+  //     } else if (command == "exit") {
+  //       result = false;
+  //     } else if (command == "draw") {
+  //       chip8->debugDraw();
+  //     } else {
+  //       std::cout << "Unknown command" << std::endl;
+  //     }
+
+  //   } else {
+  //     result = chip8->runCycle();
+  //   }
+  // }
 
   return 0;
 }

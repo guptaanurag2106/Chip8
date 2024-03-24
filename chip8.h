@@ -1,9 +1,8 @@
 #pragma once
 
-#include <time.h>
-
 #include <cstdint>
 #include <cstdlib>
+#include <ctime>
 #include <stack>
 #include <string>
 
@@ -14,6 +13,7 @@
 #define STACK_SIZE 16
 #define DISP_ROW 32
 #define DISP_COL 64
+#define CLOCK_RATE_MS 1000.0 / 60.0
 
 #define OPCODE_MASK 0xF000
 #define X_MASK 0x0F00
@@ -35,14 +35,17 @@ class CHIP8 {
 
   void loadROM(const std::string &filename);
   bool runCycle();
+  void timerTick();
   void dumpRegisters();
   void debugDraw();
+  int key_pressed;
+  bool draw_flag;
 
  private:
   bool mdisp[DISP_ROW][DISP_COL];
   uint8_t mmemory[MEM_SIZE];
   uint8_t mregisters[15];
-  std::stack<uint16_t> mstack;
+  std::stack<uint16_t> mstack;  // TODO: size check
   unsigned int mmem_end;
   uint8_t mPC;
   uint8_t mI;
@@ -50,7 +53,7 @@ class CHIP8 {
   uint8_t mdelay_timer;
   uint8_t msound_timer;
 
-  uint8_t chip8_fontset[80] = {
+  const uint8_t chip8_fontset[80] = {
       0xF0, 0x90, 0x90, 0x90, 0xF0,  // 0
       0x20, 0x60, 0x20, 0x20, 0x70,  // 1
       0xF0, 0x10, 0xF0, 0x80, 0xF0,  // 2

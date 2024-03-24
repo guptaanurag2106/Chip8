@@ -7,9 +7,8 @@ INCDIR = -lSDL2main -lSDL2
 
 all: $(PROJECT_NAME)
 
-$(PROJECT_NAME): main.cpp chip8.cpp
-	$(CXX) $(CXXFLAGS) ${LDFLAGS} -o $(PROJECT_NAME) main.cpp chip8.cpp -lmingw32 $(INCDIR)
-# mwindows
+$(PROJECT_NAME): main.cpp chip8.cpp display.cpp
+	$(CXX) $(CXXFLAGS) ${LDFLAGS} -o $(PROJECT_NAME) main.cpp chip8.cpp display.cpp -lmingw32 $(INCDIR)
 
 .PHONY: clean
 clean:

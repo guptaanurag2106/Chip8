@@ -16,8 +16,8 @@ CHIP8::CHIP8() {
   std::copy(std::begin(chip8_fontset), std::end(chip8_fontset),
             std::begin(mmemory) + FONTSET_ADDRESS);
   std::fill(&mdisp[0][0], &mdisp[0][0] + sizeof(mdisp), 0);
-
-  srand(time(0));
+  draw_flag = true;
+  srand(std::time(0));
 }
 
 void CHIP8::loadROM(const std::string &filename) {
@@ -48,11 +48,11 @@ void CHIP8::loadROM(const std::string &filename) {
     }
   }
   mmem_end = pos - 1;
-  std::cout << "ROM successfully loaded" << std::endl;
   rom.close();
 }
 
 bool CHIP8::runCycle() {
+  draw_flag = false;
   uint16_t ins = (mmemory[mPC] << 8) | mmemory[mPC + 1];
   // mPC++;
   std::cout << "PC: " << (int)mPC << " - " << ins << std::endl;
@@ -287,6 +287,15 @@ bool CHIP8::runCycle() {
       break;
   }
   return true;
+}
+
+void CHIP8::timerTick() {
+  if (mdelay_timer > 0) {
+    --mdelay_timer;
+  }
+  if (msound_timer > 0) {
+    --msound_timer;
+  }
 }
 
 void CHIP8::dumpRegisters() {
