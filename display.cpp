@@ -23,7 +23,7 @@ bool sdlInit() {
 }
 
 bool sdlRun(CHIP8* chip8) {
-  int key_pressed = -1;
+  uint8_t key_pressed = -1;
 
   SDL_Event event;
 

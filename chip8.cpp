@@ -54,7 +54,6 @@ void CHIP8::loadROM(const std::string &filename) {
 bool CHIP8::runCycle() {
   draw_flag = false;
   uint16_t ins = (mmemory[mPC] << 8) | mmemory[mPC + 1];
-  // mPC++;
   std::cout << "PC: " << (int)mPC << " - " << ins << std::endl;
 
   uint8_t opcode = OPCODE(ins);
@@ -223,18 +222,18 @@ bool CHIP8::runCycle() {
       break;
 
     case 0xE:
-      if (nn == 0xA1) {
-        // if (condn){ // TODO: check if key_pressed = mregisters[x]
-        //   mPC += 4;
-        // } else {
-        //   mPC += 2;
-        // }
-      } else if (nn == 0x9E) {
-        // if (condn){ // TODO: check if key_pressed != mregisters[x]
-        //   mPC += 4;
-        // } else {
-        //   mPC += 2;
-        // }
+      if (nn == 0x9E) {
+        if (mregisters[x] == key_pressed) {
+          mPC += 4;
+        } else {
+          mPC += 2;
+        }
+      } else if (nn == 0xA1) {
+        if (mregisters[x] != key_pressed) {
+          mPC += 4;
+        } else {
+          mPC += 2;
+        }
       } else {
         return false;
       }
@@ -250,11 +249,9 @@ bool CHIP8::runCycle() {
       } else if (nn == 0x1E) {
         mI += mregisters[x];  // 0xFX1E: I = I + VX
       } else if (nn == 0x0A) {
-        // if (key_pressed == 0){ // 0xFX0A: wait for keypress
-        //   mPC -= 2;
-        // }else{
-        //   mregisters[x] = key_pressed;
-        // }
+        if (key_pressed != -1) {
+          mPC += 2;
+        }
       } else if (nn == 0x29) {
         // I = sprite_addr[Vx] //0xFX29: I = sprite_addr[Vx]
       } else if (nn == 0x33) {

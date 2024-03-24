@@ -38,7 +38,7 @@ class CHIP8 {
   void timerTick();
   void dumpRegisters();
   void debugDraw();
-  int key_pressed;
+  uint8_t key_pressed;
   bool draw_flag;
 
  private:
