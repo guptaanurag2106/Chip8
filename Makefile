@@ -1,6 +1,6 @@
 PROJECT_NAME = CHIP8
 
-CXX = g++
+CXX = g++ --std=c++17
 CXXFLAGS = -Wall -Werror -Idependencies/sdl2/include
 LDFLAGS = -Ldependencies/sdl2/lib
 INCDIR = -lSDL2main -lSDL2
