@@ -25,6 +25,10 @@ int main(int argc, char* argv[]) {
       std::cout << "Audio enabled" << std::endl;
       audio = true;
     }
+    if (strcmp(argv[i], "--scale") == 0) {
+      std::cout << "Scaling set to " << argv[i + 1] << std::endl;
+      disp_scaling = atoi(argv[i + 1]);
+    }
     if (!strcmp(argv[i], "--rom") && (i + 1) < argc) filename = argv[i + 1];
   }
 

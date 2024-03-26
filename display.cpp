@@ -6,16 +6,18 @@ static SDL_Renderer* renderer;
 static SDL_Window* window;
 static SDL_Texture* texture;
 
+int disp_scaling = 10;
+
 bool sdlInit() {
   if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
     std::cerr << "Failed to initialize SDL2: " << SDL_GetError() << std::endl;
     return false;
   }
-
+  std::cout << "asaaaaaaaaaaaaaaaaaaaaa" << disp_scaling << std::endl;
   // Create a window
-  window =
-      SDL_CreateWindow("CHIP 8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                       DISP_COL * 8, DISP_ROW * 8, SDL_WINDOW_SHOWN);
+  window = SDL_CreateWindow("CHIP 8", SDL_WINDOWPOS_CENTERED,
+                            SDL_WINDOWPOS_CENTERED, DISP_COL * disp_scaling,
+                            DISP_ROW * disp_scaling, SDL_WINDOW_SHOWN);
   if (!window) {
     std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
     return false;
@@ -25,7 +27,8 @@ bool sdlInit() {
     std::cerr << "Failed to create renderer" << SDL_GetError() << std::endl;
     return false;
   }
-  SDL_RenderSetLogicalSize(renderer, DISP_COL * 8, DISP_ROW * 8);
+  SDL_RenderSetLogicalSize(renderer, DISP_COL * disp_scaling,
+                           DISP_ROW * disp_scaling);
   texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
                               SDL_TEXTUREACCESS_STREAMING, DISP_COL, DISP_ROW);
   if (texture == nullptr) {
