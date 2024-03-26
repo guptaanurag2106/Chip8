@@ -4,26 +4,40 @@
 
 SDL_Renderer* renderer;
 SDL_Window* window;
+SDL_Texture* texture;
 
 bool sdlInit() {
-  if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+  if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
     std::cerr << "Failed to initialize SDL2: " << SDL_GetError() << std::endl;
     return false;
   }
 
   // Create a window
-  window = SDL_CreateWindow("CHIP 8", SDL_WINDOWPOS_CENTERED,
-                            SDL_WINDOWPOS_CENTERED, 64 * 8, 32 * 8, 0);
+  window =
+      SDL_CreateWindow("CHIP 8", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                       DISP_COL * 10, DISP_ROW * 10, SDL_WINDOW_SHOWN);
   if (!window) {
     std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
     return false;
   }
   renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+  if (renderer == nullptr) {
+    std::cerr << "Failed to create renderer" << SDL_GetError() << std::endl;
+    return false;
+  }
+  SDL_RenderSetLogicalSize(renderer, DISP_COL * 10, DISP_ROW * 10);
+  texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                              SDL_TEXTUREACCESS_STREAMING, DISP_COL, DISP_ROW);
+  if (texture == nullptr) {
+    std::cerr << "Error in setting up texture " << SDL_GetError() << std::endl;
+    return false;
+  }
+
   return true;
 }
 
 bool sdlRun(CHIP8* chip8) {
-  uint8_t key_pressed = -1;
+  int key_pressed = -1;
 
   SDL_Event event;
 
@@ -36,52 +50,55 @@ bool sdlRun(CHIP8* chip8) {
       }
 
       switch (event.key.keysym.sym) {
-        case SDLK_0:
-          key_pressed = 0;
-          break;
         case SDLK_1:
-          key_pressed = 1;
+          key_pressed = 0x1;
           break;
         case SDLK_2:
-          key_pressed = 2;
+          key_pressed = 0x2;
           break;
         case SDLK_3:
-          key_pressed = 3;
+          key_pressed = 0x3;
           break;
         case SDLK_4:
-          key_pressed = 4;
-          break;
-        case SDLK_5:
-          key_pressed = 5;
-          break;
-        case SDLK_6:
-          key_pressed = 6;
-          break;
-        case SDLK_7:
-          key_pressed = 7;
-          break;
-        case SDLK_8:
-          key_pressed = 8;
-          break;
-        case SDLK_9:
-          key_pressed = 9;
-          break;
-        case SDLK_a:
-          key_pressed = 0xA;
-          break;
-        case SDLK_b:
-          key_pressed = 0xB;
-          break;
-        case SDLK_c:
           key_pressed = 0xC;
           break;
-        case SDLK_d:
-          key_pressed = 0xD;
+
+        case SDLK_q:
+          key_pressed = 0x4;
+          break;
+        case SDLK_w:
+          key_pressed = 0x5;
           break;
         case SDLK_e:
-          key_pressed = 0xE;
+          key_pressed = 0x6;
+          break;
+        case SDLK_r:
+          key_pressed = 0xD;
+          break;
+
+        case SDLK_a:
+          key_pressed = 0x7;
+          break;
+        case SDLK_s:
+          key_pressed = 0x8;
+          break;
+        case SDLK_d:
+          key_pressed = 0x9;
           break;
         case SDLK_f:
+          key_pressed = 0xE;
+          break;
+
+        case SDLK_z:
+          key_pressed = 0xA;
+          break;
+        case SDLK_x:
+          key_pressed = 0x0;
+          break;
+        case SDLK_c:
+          key_pressed = 0xB;
+          break;
+        case SDLK_v:
           key_pressed = 0xF;
           break;
         default:
@@ -93,7 +110,35 @@ bool sdlRun(CHIP8* chip8) {
   return false;
 }
 
-void sdlDraw(const CHIP8* chip8) {}
+void sdlDraw(CHIP8* chip8) {
+  // SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  // SDL_RenderClear(renderer);
+  // SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+  // for (int y = 0; y < DISP_ROW; y++) {
+  //   for (int x = 0; x < DISP_COL; x++) {
+  //     if (chip8->mdisp[y][x]) {
+  //       SDL_Rect rect = {x * 10, y * 10, 10, 10};
+  //       SDL_RenderFillRect(renderer, &rect);
+  //     }
+  //   }
+  // }
+  // SDL_RenderPresent(renderer);
+  uint32_t pixels[DISP_ROW * DISP_COL];
+  for (int i = 0; i < DISP_ROW; i++) {
+    for (int j = 0; j < DISP_COL; j++) {
+      if (chip8->mdisp[i][j]) {
+        pixels[i * DISP_COL + j] = 0xFFFFFFFF;
+      } else {
+        pixels[i * DISP_COL + j] = 0xFF000000;
+      }
+    }
+  }
+  SDL_UpdateTexture(texture, NULL, pixels, DISP_COL * sizeof(uint32_t));
+  SDL_RenderClear(renderer);
+  SDL_RenderCopy(renderer, texture, NULL, NULL);
+  SDL_RenderPresent(renderer);
+  chip8->draw_flag = false;
+}
 
 void sdlCleanup() {
   SDL_DestroyRenderer(renderer);

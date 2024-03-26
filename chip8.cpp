@@ -4,57 +4,52 @@
 #include <iostream>
 
 CHIP8::CHIP8() {
-  mPC = (uint8_t)0x200;
-  mVF = 0;
+  mSP = 0;
+  mPC = ROM_START;
   mI = 0;
   mdelay_timer = 0;
   msound_timer = 0;
-
-  std::fill(std::begin(mmemory), std::end(mmemory), 0);
-  std::fill(std::begin(mregisters), std::end(mregisters), 0);
-  // std::fill(std::begin(mstack), std::end(mstack), 0);
-  std::copy(std::begin(chip8_fontset), std::end(chip8_fontset),
-            std::begin(mmemory) + FONTSET_ADDRESS);
-  std::fill(&mdisp[0][0], &mdisp[0][0] + sizeof(mdisp), 0);
+  key_pressed = -1;
   draw_flag = true;
-  srand(std::time(0));
+
+  std::fill(std::begin(mstack), std::end(mstack), 0);
+  std::fill(std::begin(mregisters), std::end(mregisters), 0);
+  std::fill(std::begin(mmemory), std::end(mmemory), 0);
+  std::fill(&mdisp[0][0], &mdisp[0][0] + sizeof(mdisp), 0);
+  for (int i = FONTSET_ADDRESS; i < FONTSET_ADDRESS + 80; i++) {
+    mmemory[i] = chip8_fontset[i];
+  }
+  srand(std::time(NULL));
 }
 
+// load the rom into the memory
 void CHIP8::loadROM(const std::string &filename) {
-  // load the rom into the memory
   std::ifstream rom(filename, std::ios::binary);
 
   if (!rom.is_open()) {
     std::cerr << "Could not load file: " << filename << std::endl;
     exit(1);
   }
-  int pos = ROM_START;
-  //   streampos size;
-  //   char* memblock;
-  //   size = rom.tellg();
-  //     memblock = new char[size];
-  //     rom.seekg(0, std::ios::beg);
-  //     rom.read(memblock, size);
 
-  //     delete[] memblock;
-  uint8_t curr;
-
-  while (rom.read(reinterpret_cast<char *>(&curr), 1)) {
-    mmemory[pos++] = curr;
-    if (pos >= MEM_SIZE) {
+  char c;
+  int i;
+  for (i = ROM_START; rom.get(c); i++) {
+    mmemory[i] = (uint8_t)c;
+    if (i > MEM_SIZE) {
       std::cerr << "ROM too large, exceeding memory size" << std::endl;
       rom.close();
       exit(1);
     }
   }
-  mmem_end = pos - 1;
+
+  mmem_end = i;
+  std::cout << "Memory size: " << mmem_end - ROM_START << " bytes" << std::endl;
   rom.close();
 }
 
 bool CHIP8::runCycle() {
-  draw_flag = false;
-  uint16_t ins = (mmemory[mPC] << 8) | mmemory[mPC + 1];
-  std::cout << "PC: " << (int)mPC << " - " << ins << std::endl;
+  uint16_t ins = ((uint16_t)mmemory[mPC] << 8) | (uint16_t)mmemory[mPC + 1];
+  std::cout << std::hex << "PC: " << (int)mPC << " - " << (int)ins << std::endl;
 
   uint8_t opcode = OPCODE(ins);
   uint8_t x = X(ins);
@@ -62,18 +57,20 @@ bool CHIP8::runCycle() {
   uint8_t n = N(ins);
   uint8_t nn = NN(ins);
   uint16_t nnn = NNN(ins);
-  // std::cout << x << y << n << nn << nnn << std::endl;
+  uint8_t X, Y;
 
   switch (opcode) {
     case 0x0:
       if (x == 0 && y == 0xE && n == 0) {  // 0x00E0: clear screen
         std::fill(&mdisp[0][0], &mdisp[0][0] + sizeof(mdisp), 0);
+        draw_flag = true;
+        mPC += 2;
       } else if (x == 0 && y == 0xE &&
                  n == 0xE) {  // 0x00EE: return from subroutine
-        mPC = mstack.top();
-        mstack.pop();
+        mPC = mstack[--mSP];
+      } else {
+        return false;
       }
-      mPC += 2;
       break;
 
     case 0x1:
@@ -81,51 +78,38 @@ bool CHIP8::runCycle() {
       break;
 
     case 0x2:
-      mstack.push(mPC);  // 0x2NNN: Call subroutine
+      mstack[mSP++] = mPC + 2;
       mPC = nnn;
       break;
 
     case 0x3:
-      if (mregisters[x] == nn) {  // 3XNN: Skip next instruction if VX == NN
-        mPC += 4;
-      } else {
-        mPC += 2;
-      }
+      mPC += (mregisters[x] == nn)
+                 ? 4
+                 : 2;  // 3XNN: Skip next instruction if VX == NN
+
       break;
 
     case 0x4:
-      if (mregisters[x] != nn) {  // 4XNN: Skip next instruction if VX != NN
-        mPC += 4;
-      } else {
-        mPC += 2;
-      }
+      mPC += (mregisters[x] != nn)
+                 ? 4
+                 : 2;  // 4XNN: Skip next instruction if VX != NN
       break;
 
     case 0x5:
       if (n != 0) {
         return false;
       }
-      if (mregisters[x] ==
-          mregisters[y]) {  // 5XY0: Skip next instruction if VX == VY
-        mPC += 4;
-      } else {
-        mPC += 2;
-      }
+      // 5XY0: Skip next instruction if VX == VY
+      mPC += (mregisters[x] == mregisters[y]) ? 4 : 2;
       break;
 
     case 0x6:
-      if (x < 15) {  // 0x6XNN: Set VX to NN
-        mregisters[x] = nn;
-      } else if (x == 15) {
-        mVF = nn;  // ?: can VF be changed by program
-      }
+      mregisters[x] = nn;
       mPC += 2;
       break;
 
     case 0x7:
-      if (x < 15) {  // 0x7XNN: VX += NN
-        mregisters[x] += nn;
-      }
+      mregisters[x] += nn;
       mPC += 2;
       break;
 
@@ -144,19 +128,12 @@ bool CHIP8::runCycle() {
           mregisters[x] ^= mregisters[y];  // 0x8XY3 VX=VX^VY
           break;
         case 4:
-          if (((int)mregisters[x] + (int)mregisters[y]) > 255) {  // TODO: check
-            mVF = 1;
-          } else {
-            mVF = 0;
-          }
+          mregisters[15] =
+              (((int)mregisters[x] + (int)mregisters[y]) > 255) ? 1 : 0;
           mregisters[x] += mregisters[y];  // 0x8XY4 VX=VX+VY
           break;
         case 5:
-          if (mregisters[x] > -mregisters[y]) {  // TODO: check
-            mVF = 1;
-          } else {
-            mVF = 0;
-          }
+          mregisters[15] = (mregisters[x] > mregisters[y]) ? 1 : 0;
           mregisters[x] -= mregisters[y];  // 0x8XY5 VX=VX-VY
           break;
         case 6:
@@ -164,15 +141,11 @@ bool CHIP8::runCycle() {
           // VX is shifted in place, Y is ignored
           // mregisters[x] = mregisters[y];
 
-          mVF = mregisters[x] & 0x1;  // 0x8XY6 VX=VY>>1
+          mregisters[15] = mregisters[x] & 0x1;  // 0x8XY6 VX=VY>>1
           mregisters[x] = mregisters[x] >> 1;
           break;
         case 7:
-          if (mregisters[y] > -mregisters[x]) {  // TODO: check
-            mVF = 1;
-          } else {
-            mVF = 0;
-          }
+          mregisters[15] = mregisters[y] > mregisters[x] ? 1 : 0;
           mregisters[x] = mregisters[y] - mregisters[x];  // 0x8XY5 VX=VY-VX
           break;
         case 0xE:
@@ -180,8 +153,9 @@ bool CHIP8::runCycle() {
           // VX is shifted in place, Y is ignored
           // mregisters[x] = mregisters[y];
 
-          mVF = mregisters[x] & 0x80;  // 0x8XYE VX=VY<<1
+          mregisters[15] = mregisters[x] & 0x80;  // 0x8XYE VX=VY<<1
           mregisters[x] = mregisters[x] << 1;
+          break;
         default:
           return false;
       }
@@ -192,12 +166,8 @@ bool CHIP8::runCycle() {
       if (n != 0) {
         return false;
       }
-      if (mregisters[x] !=
-          mregisters[y]) {  // 9x9XY0: Skip next instruction if VX != VY
-        mPC += 4;
-      } else {
-        mPC += 2;
-      }
+      // 9x9XY0: Skip next instruction if VX != VY
+      mPC += mregisters[x] != mregisters[y] ? 4 : 2;
       break;
 
     case 0xA:
@@ -208,7 +178,7 @@ bool CHIP8::runCycle() {
     case 0xB:
       // ! Depends on implementation, starting with CHIP-48 and SUPER-CHIP,
       // 0xBXNN jumps to XNN + VX
-
+      // mPC = mregisters[x] + nnn;
       mPC = mregisters[0] + nnn;  // 0xBNNN: Jump to NNN + V0
       break;
 
@@ -218,22 +188,32 @@ bool CHIP8::runCycle() {
       break;
 
     case 0xD:
-      // TODO: DXYN
+      Y = mregisters[y];
+      X = mregisters[x];
+      mregisters[15] = 0;
+
+      for (int i = 0; i < n; i++) {
+        if ((Y + i) > DISP_ROW - 1) break;
+        uint8_t curr_data = mmemory[mI + i];
+
+        for (int j = 0; j < 8; j++) {
+          if ((X + j) > DISP_COL - 1) break;
+          if (curr_data & (0x80 >> j)) {
+            if (mdisp[Y + i][X + j]) mregisters[15] = 1;
+            mdisp[Y + i][X + j] = !mdisp[Y + i][X + j];
+          }
+        }
+      }
+
+      draw_flag = true;
+      mPC += 2;
       break;
 
     case 0xE:
       if (nn == 0x9E) {
-        if (mregisters[x] == key_pressed) {
-          mPC += 4;
-        } else {
-          mPC += 2;
-        }
+        mPC += (mregisters[x] == key_pressed) ? 4 : 2;
       } else if (nn == 0xA1) {
-        if (mregisters[x] != key_pressed) {
-          mPC += 4;
-        } else {
-          mPC += 2;
-        }
+        mPC += mregisters[x] != key_pressed ? 4 : 2;
       } else {
         return false;
       }
@@ -242,38 +222,39 @@ bool CHIP8::runCycle() {
     case 0xF:
       if (nn == 0x07) {
         mregisters[x] = mdelay_timer;  // 0xFX07: VX = delay_timer
+      } else if (nn == 0x0A) {
+        if (key_pressed == -1) {
+          mPC -= 2;  // 0xFX0A: wait for keypress (making sure that if no
+          // key_pressed(-1) the program counter does not change)
+        }
       } else if (nn == 0x15) {
         mdelay_timer = mregisters[x];  // 0xFX15: delay_timer = VX
       } else if (nn == 0x18) {
         msound_timer = mregisters[x];  // 0xFX18: sound_timer = VX
       } else if (nn == 0x1E) {
-        mI += mregisters[x];  // 0xFX1E: I = I + VX
-      } else if (nn == 0x0A) {
-        if (key_pressed != -1) {
-          mPC += 2;
-        }
+        mregisters[15] = (mI + mregisters[x] > 0xfff) ? 1 : 0;
+        mI += (uint16_t)mregisters[x];  // 0xFX1E: I = I + VX
       } else if (nn == 0x29) {
-        // I = sprite_addr[Vx] //0xFX29: I = sprite_addr[Vx]
+        mI = (uint16_t)mregisters[x] * FONTSET_BYTES_PER_CHAR +
+             FONTSET_ADDRESS;  // 0xFX29: I = sprite_addr[Vx]
       } else if (nn == 0x33) {
-        // uint8_t VX = mregisters[x];
-        // mmemory[mI] = VX / 100;
-        // VX %= 100;
-        // mmemory[mI + 1] = VX / 10;
-        // VX %= 10;
-        // mmemory[mI + 2] = VX;
-        mmemory[mI] = (mregisters[x] & 0xF00) >> 8;
-        mmemory[mI + 1] = (mregisters[x] & 0x0F0) >> 4;
-        mmemory[mI + 2] = mregisters[x] & 0x00F;
+        mmemory[mI] = (mregisters[x] % 1000) / 100;    // hundred's digit
+        mmemory[mI + 1] = (mregisters[x] % 100) / 10;  // ten's digit
+        mmemory[mI + 2] = (mregisters[x] % 10);        // one's digit
+
       } else if (nn == 0x55) {
         // ! Depends on implementation, starting with CHIP-48 and SUPER-CHIP,
         // mI was not changed, whereas previously new_mI = mI + x + 1
-        for (int i = 0; i < x; i++) {
+        for (int i = 0; i <= x; i++) {
           mmemory[mI + i] = mregisters[i];
         }
+        mI += x + 1;
       } else if (nn == 0x65) {
-        for (int i = 0; i < x; i++) {
+        std::cout << "copying" << std::endl;
+        for (int i = 0; i <= x; i++) {
           mregisters[i] = mmemory[mI + i];
         }
+        mI += x + 1;
       } else {
         return false;
       }
@@ -283,6 +264,7 @@ bool CHIP8::runCycle() {
     default:
       break;
   }
+  // timerTick();
   return true;
 }
 
@@ -297,15 +279,18 @@ void CHIP8::timerTick() {
 
 void CHIP8::dumpRegisters() {
   // print the registers and the PC and flags
-  std::cout << "------------------------------------------------------\n";
-  for (int i = 0; i < 16; ++i) {
-    std::cout << " R" << i << ": " << std::hex << (int)mregisters[i] << " ";
-  }
+  std::cout << "---------------------------------------------------------------"
+               "-------------------------------------------------------"
+               "-------------"
+            << std::endl;
   std::cout << "PC: " << std::hex << mPC << " ";
-  std::cout << std::dec;
-  std::cout << "Flags: " << std::hex << (int)mVF << " " << std::endl;
-  ;
-  std::cout << "------------------------------------------------------"
+  for (int i = 0; i < 16; ++i) {
+    std::cout << " R" << i << ": " << (int)mregisters[i] << " ";
+  }
+  std::cout << "I: " << (int)mI << std::endl;
+  std::cout << "---------------------------------------------------------------"
+               "-------------------------------------------------------"
+               "-------------"
             << std::endl;
 }
 
@@ -313,9 +298,9 @@ void CHIP8::debugDraw() {
   for (int row = 0; row < DISP_ROW; ++row) {
     for (auto col : mdisp[row]) {
       if (!col) {
-        std::cout << "0";
-      } else {
         std::cout << " ";
+      } else {
+        std::cout << "O";
       }
     }
     std::cout << "\n";

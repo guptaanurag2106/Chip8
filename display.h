@@ -7,4 +7,4 @@
 bool sdlInit();
 bool sdlRun(CHIP8* chip8);
 void sdlCleanup();
-void sdlDraw(const CHIP8* chip8);
+void sdlDraw(CHIP8* chip8);

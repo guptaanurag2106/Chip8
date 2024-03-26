@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <ctime>
@@ -8,12 +9,12 @@
 
 #define MEM_SIZE 0x1000
 #define ROM_START 0x200
-#define FONTSET_ADDRESS 0x50
+#define FONTSET_ADDRESS 0x0  //? change to 0x50?;
 #define FONTSET_BYTES_PER_CHAR 5
 #define STACK_SIZE 16
 #define DISP_ROW 32
 #define DISP_COL 64
-#define CLOCK_RATE_MS 1000.0 / 60.0
+#define CLOCK_RATE_MS (int)((1.0 / 60.0) * 1000 + 0.5)
 
 #define OPCODE_MASK 0xF000
 #define X_MASK 0x0F00
@@ -38,18 +39,18 @@ class CHIP8 {
   void timerTick();
   void dumpRegisters();
   void debugDraw();
-  uint8_t key_pressed;
+  int key_pressed;
   bool draw_flag;
+  bool mdisp[DISP_ROW][DISP_COL];
 
  private:
-  bool mdisp[DISP_ROW][DISP_COL];
   uint8_t mmemory[MEM_SIZE];
-  uint8_t mregisters[15];
-  std::stack<uint16_t> mstack;  // TODO: size check
+  uint8_t mregisters[16];
+  uint16_t mstack[STACK_SIZE];
+  uint8_t mSP;
   unsigned int mmem_end;
-  uint8_t mPC;
-  uint8_t mI;
-  uint8_t mVF;
+  uint16_t mPC;
+  uint16_t mI;
   uint8_t mdelay_timer;
   uint8_t msound_timer;
 
@@ -71,8 +72,4 @@ class CHIP8 {
       0xF0, 0x80, 0xF0, 0x80, 0xF0,  // E
       0xF0, 0x80, 0xF0, 0x80, 0x80   // F
   };
-
-  // An 8-bit delay timer which is decremented at a rate of 60 Hz (60 times per
-  // second) until it reaches 0 An 8-bit sound timer which functions like the
-  // delay timer, but which also gives off a beeping sound as long as it’s not 0
 };

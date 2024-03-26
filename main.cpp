@@ -1,15 +1,13 @@
-// #include <SDL2/SDL.h>
 #include <string.h>
+#include <unistd.h>
+#include <windows.h>
 
-#include <chrono>
 #include <iostream>
 
 #include "chip8.h"
 #include "display.h"
 
 int main(int argc, char* argv[]) {
-  auto time_prev = std::chrono::system_clock::now();
-
   if (argc < 3) {
     std::cout << "Usage: chip8 --rom <rom>" << std::endl;
     return 0;
@@ -24,32 +22,36 @@ int main(int argc, char* argv[]) {
     }
     if (!strcmp(argv[i], "--rom") && (i + 1) < argc) filename = argv[i + 1];
   }
-  std::cout << "Hello world" << std::endl;
 
   if (DEBUG_MODE) {
     std::cout << "Running in DEBUG MODE" << std::endl;
   }
 
-  bool init_success = sdlInit();
-  if (!init_success) {
-    std::cerr << "Failed to initialize SDL" << std::endl;
-    return 0;
-  }
-
-  bool quit = false;
-
   CHIP8 chip8;
   chip8.loadROM(filename);
   std::cout << "Successfully loaded ROM" << std::endl;
+
+  bool init_success = sdlInit();
+  if (!init_success) return 0;
+
+  bool quit = false;
+
+  auto time_prev = std::chrono::system_clock::now();
   while (!quit) {
-    // bool result = chip8.runCycle();
-    // if (!result) {
-    //   std::cout << "Could not process last instruction..." << std::endl;
-    //   break;
-    // }
+    // std::string x;
+    // std::cin >> x;
+
+    bool result = chip8.runCycle();
+    chip8.dumpRegisters();
+    if (!result) {
+      std::cout << "Could not process last instruction..." << std::endl;
+      break;
+    }
 
     if (chip8.draw_flag) {
+      std::cout << "drawing" << std::endl;
       sdlDraw(&chip8);
+      // chip8.debugDraw();
     }
 
     quit = sdlRun(&chip8);
@@ -58,12 +60,15 @@ int main(int argc, char* argv[]) {
     }
 
     auto time_now = std::chrono::system_clock::now();
-    std::chrono::duration<double> diff = time_now - time_prev;
+    // std::chrono::duration<double> diff = time_now - time_prev;
+    auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(
+        time_now - time_prev);
 
-    if (diff.count() * 1000.0 > CLOCK_RATE_MS) {
+    if (milliseconds.count() >= CLOCK_RATE_MS) {
       chip8.timerTick();
+      time_prev = time_now;
     }
-    time_prev = time_now;
+    // usleep(1500);
   }
   sdlCleanup();
 
