@@ -3,15 +3,16 @@
 #include <fstream>
 #include <iostream>
 
-CHIP8::CHIP8() {
+CHIP8::CHIP8(bool audio) {
+  audio_enable = audio;
   mSP = 0;
   mPC = ROM_START;
   mI = 0;
   mdelay_timer = 0;
   msound_timer = 0;
-  key_pressed = -1;
   draw_flag = true;
 
+  std::fill(std::begin(key_pressed), std::end(key_pressed), 0);
   std::fill(std::begin(mstack), std::end(mstack), 0);
   std::fill(std::begin(mregisters), std::end(mregisters), 0);
   std::fill(std::begin(mmemory), std::end(mmemory), 0);
@@ -49,7 +50,6 @@ void CHIP8::loadROM(const std::string &filename) {
 
 bool CHIP8::runCycle() {
   uint16_t ins = ((uint16_t)mmemory[mPC] << 8) | (uint16_t)mmemory[mPC + 1];
-  std::cout << std::hex << "PC: " << (int)mPC << " - " << (int)ins << std::endl;
 
   uint8_t opcode = OPCODE(ins);
   uint8_t x = X(ins);
@@ -188,20 +188,34 @@ bool CHIP8::runCycle() {
       break;
 
     case 0xD:
-      Y = mregisters[y];
-      X = mregisters[x];
+      Y = mregisters[y] % DISP_ROW;
+      X = mregisters[x] % DISP_COL;
+      std::cout << (int)X << " " << (int)Y << std::endl;
       mregisters[15] = 0;
 
       for (int i = 0; i < n; i++) {
         if ((Y + i) > DISP_ROW - 1) break;
         uint8_t curr_data = mmemory[mI + i];
 
+        // for (int j = 0; j < 8; j++) {
+        //   if ((X + j) > DISP_COL - 1) break;
+        //   if (curr_data & (0x80 >> j)) {
+        //     if (mdisp[Y + i][X + j]) mregisters[15] = 1;
+        //     mdisp[Y + i][X + j] = !mdisp[Y + i][X + j];
+        //   }
+        // }
         for (int j = 0; j < 8; j++) {
-          if ((X + j) > DISP_COL - 1) break;
-          if (curr_data & (0x80 >> j)) {
-            if (mdisp[Y + i][X + j]) mregisters[15] = 1;
-            mdisp[Y + i][X + j] = !mdisp[Y + i][X + j];
-          }
+          // the value of the bit in the sprite
+          uint8_t bit = (curr_data >> j) & 0x1;
+          // the value of the current pixel on the screen
+          bool *pixelp = &mdisp[(Y + i) % DISP_ROW][(X + (7 - j)) % DISP_COL];
+
+          // if drawing to the screen would cause any pixel to be erased,
+          // set the collision flag to 1
+          if (bit == 1 && *pixelp == 1) mregisters[15] = 1;
+
+          // draw this pixel by XOR
+          *pixelp = *pixelp ^ bit;
         }
       }
 
@@ -211,9 +225,9 @@ bool CHIP8::runCycle() {
 
     case 0xE:
       if (nn == 0x9E) {
-        mPC += (mregisters[x] == key_pressed) ? 4 : 2;
+        mPC += (key_pressed[mregisters[x]]) ? 4 : 2;
       } else if (nn == 0xA1) {
-        mPC += mregisters[x] != key_pressed ? 4 : 2;
+        mPC += !key_pressed[mregisters[x]] ? 4 : 2;
       } else {
         return false;
       }
@@ -223,10 +237,14 @@ bool CHIP8::runCycle() {
       if (nn == 0x07) {
         mregisters[x] = mdelay_timer;  // 0xFX07: VX = delay_timer
       } else if (nn == 0x0A) {
-        if (key_pressed == -1) {
-          mPC -= 2;  // 0xFX0A: wait for keypress (making sure that if no
-          // key_pressed(-1) the program counter does not change)
-        }
+        for (auto key : key_pressed)
+          if (key) {
+            mPC += 2;
+            break;
+          }
+        mPC -= 2;
+        // 0xFX0A: wait for keypress (making sure that if no
+        // key_pressed(-1) the program counter does not change)
       } else if (nn == 0x15) {
         mdelay_timer = mregisters[x];  // 0xFX15: delay_timer = VX
       } else if (nn == 0x18) {
@@ -245,16 +263,17 @@ bool CHIP8::runCycle() {
       } else if (nn == 0x55) {
         // ! Depends on implementation, starting with CHIP-48 and SUPER-CHIP,
         // mI was not changed, whereas previously new_mI = mI + x + 1
-        for (int i = 0; i <= x; i++) {
+        for (uint16_t i = 0; i <= x; i++) {
           mmemory[mI + i] = mregisters[i];
         }
-        mI += x + 1;
+        mI = mI + x + 1;
       } else if (nn == 0x65) {
-        std::cout << "copying" << std::endl;
-        for (int i = 0; i <= x; i++) {
+        std::cout << "copy " << std::hex << (int)mI << " " << (int)x
+                  << std::endl;
+        for (uint16_t i = 0; i <= x; i++) {
           mregisters[i] = mmemory[mI + i];
         }
-        mI += x + 1;
+        mI = mI + x + 1;
       } else {
         return false;
       }
@@ -264,7 +283,7 @@ bool CHIP8::runCycle() {
     default:
       break;
   }
-  // timerTick();
+  timerTick();
   return true;
 }
 
@@ -274,6 +293,9 @@ void CHIP8::timerTick() {
   }
   if (msound_timer > 0) {
     --msound_timer;
+  }
+  if (msound_timer == 0 && audio_enable) {
+    std::cout << "\a" << std::endl;
   }
 }
 

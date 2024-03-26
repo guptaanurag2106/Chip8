@@ -1,6 +1,5 @@
 #include <string.h>
 #include <unistd.h>
-#include <windows.h>
 
 #include <iostream>
 
@@ -14,11 +13,17 @@ int main(int argc, char* argv[]) {
   }
 
   bool DEBUG_MODE = false;
+  bool audio = false;
   std::string filename;
+
   for (int i = 0; i < argc; i++) {
     if (strcmp(argv[i], "-d") == 0) {
       std::cout << "Debug mode" << std::endl;
       DEBUG_MODE = true;
+    }
+    if (strcmp(argv[i], "-a") == 0) {
+      std::cout << "Audio enabled" << std::endl;
+      audio = true;
     }
     if (!strcmp(argv[i], "--rom") && (i + 1) < argc) filename = argv[i + 1];
   }
@@ -27,7 +32,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Running in DEBUG MODE" << std::endl;
   }
 
-  CHIP8 chip8;
+  CHIP8 chip8(audio);
   chip8.loadROM(filename);
   std::cout << "Successfully loaded ROM" << std::endl;
 
@@ -55,9 +60,9 @@ int main(int argc, char* argv[]) {
     }
 
     quit = sdlRun(&chip8);
-    if (chip8.key_pressed != -1) {
-      std::cout << "Key pressed " << chip8.key_pressed << std::endl;
-    }
+    // if (chip8.key_pressed != -1) {
+    //   std::cout << "Key pressed " << chip8.key_pressed << std::endl;
+    // }
 
     auto time_now = std::chrono::system_clock::now();
     // std::chrono::duration<double> diff = time_now - time_prev;
@@ -65,10 +70,10 @@ int main(int argc, char* argv[]) {
         time_now - time_prev);
 
     if (milliseconds.count() >= CLOCK_RATE_MS) {
-      chip8.timerTick();
-      time_prev = time_now;
+      // chip8.timerTick();
+      // time_prev = time_now;
     }
-    // usleep(1500);
+    usleep(1500);
   }
   sdlCleanup();
 
